@@ -21,16 +21,27 @@ class FileManager:
             "CLIENT_SECRET": "bots_client_id (not implemented)",
             "Comment": {
                 "Required data": f"Please update {required_data.keys()}"
-                .replace("dict_keys(['", "").replace("'", "").replace("])", ""),
+                .replace("dict_keys(['", "")
+                .replace("'", "").replace("])", ""),
                 "Delay info": "A MSG_DELAY >1.5 will be rate limited by VRC",
-                "Not implemented": "CLIENT_ID and CLIENT_SECRET do not do anything yet.",
+                "Not implemented": "CLIENT_ID and CLIENT_SECRET are not setup",
             },
             "VRC_IP": "127.0.0.1",
             "VRC_PORT": 9000,
             "MSG_DELAY": 1.5,
             "BIG_MSG_DELAY": 3,
             "BIG_MSG_LENGTH": 100,
-            "PRINT_CHAT_LOG": False
+            "PRINT_CHAT_LOG": False,
+            "BADGES": {
+                "ENABLE": True,
+                "SUB": "🐾",
+                "GIFT_SUB": "🎁",
+                "BITS": "▲",
+                "BROADCASTERS": "🎥",
+                "MODERATOR": "⚔️",
+                "VERIFIED": "✅",
+                "ARTIST": "🎨",
+            },
         }
         self.config = self.load_config(
             config_file,
@@ -89,6 +100,16 @@ class FileManager:
         with open(config_path, encoding='utf-8') as file:
             config = json.load(file)
 
+        # Check if the config if missing keys
+        old_config = config
+        config = self._config_is_outdated(
+            config,
+            required_data,
+            default_config
+        )
+        if old_config != config:
+            self.create_default_config(config_file, config)
+
         # check if the config file as the required updates
         if self._is_config_valid(config, required_data):
             return config
@@ -108,7 +129,7 @@ class FileManager:
         self,
         config_file: str,
         required_data: dict,
-        default_config: dict
+        optional_data: dict = None
     ) -> None:
         """Creates a default configuration file if it doesn't exist.
 
@@ -117,12 +138,17 @@ class FileManager:
             user_data (dict): The required values in the config.
             default_config (dict): The default values in the config.
         """
+        merged_config = {}
+
+        # If the optional_data is not set, its now an empty dict
+        if optional_data is None:
+            optional_data = {}
 
         # Create a new dictionary with user_data followed by default_config
-        merged_config = {**required_data, **default_config}
+        merged_config = {**required_data, **optional_data}
 
         with open(config_file, 'w', encoding='utf-8') as file:
-            json.dump(merged_config, file, indent=4)
+            json.dump(merged_config, file, ensure_ascii=False, indent=4)
 
     def _is_config_valid(self, config: dict, user_data: dict) -> bool:
         """A function to check for default values in user_data.
@@ -142,6 +168,34 @@ class FileManager:
                 return False
         # If all user_data values have been changed, return True
         return True
+
+    def _config_is_outdated(
+        self,
+        config: dict,
+        required_data: dict,
+        default_config: dict
+    ) -> dict:
+        """A function to check if the file is out of date
+
+        Args:
+            config (dict): the config file loaded from config.json
+            required_data (dict): The required values in the config.
+            default_config (dict): The required none values in the config.
+
+        Returns:
+            bool: True if the config is outdated, False otherwise.
+        """
+        # combines the incoming data
+        default_config = {**required_data, **default_config}
+        key_dif = set(default_config.keys()) - set(config.keys())
+        if key_dif:
+            key_dif_str = str(key_dif).replace("{'", "").replace("'}", "")
+            print(f"Updated config with the new {key_dif_str} options!")
+            # If the config is missing any keys they are added
+            # Old config is then applied over new config keys
+            new_config = {**default_config, **config}
+            return new_config
+        return config
 
 
 if __name__ == '__main__':
